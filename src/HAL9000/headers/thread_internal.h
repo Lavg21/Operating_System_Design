@@ -33,6 +33,9 @@ typedef DWORD           THREAD_FLAGS;
 
 typedef struct _THREAD
 {
+    // The TID of the parent thread
+    TID                     ParentId;
+
     REF_COUNT               RefCnt;
 
     struct _THREAD          *Self;
