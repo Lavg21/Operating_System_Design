@@ -2,9 +2,6 @@
 
 #include "thread_defs.h"
 
-QWORD
-GetTotalNumberOfThreadsInTheSystem();
-
 //******************************************************************************
 // Function:     ThreadCreate
 // Description:  Spawns a new thread named Name with priority Function which

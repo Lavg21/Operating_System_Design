@@ -16,7 +16,6 @@
 #include "ex_timer.h"
 #include "vmm.h"
 #include "pit.h"
-#include "thread.h"
 
 
 #pragma warning(push)
@@ -130,9 +129,7 @@ void
 
     ASSERT(NumberOfParameters == 0);
 
-    LOG("%7s", "TotalNumberOfThreadsInTheSystem|");
     LOG("%7s", "TID|");
-    LOG("%7s", "Parent TID|");
     LOG("%20s", "Name|");
     LOG("%5s", "Prio|");
     LOG("%8s", "State|");
@@ -688,9 +685,7 @@ STATUS
 
     pThread = CONTAINING_RECORD(ListEntry, THREAD, AllList );
 
-    LOG("%4d%c", GetTotalNumberOfThreadsInTheSystem(), '|');
     LOG("%6x%c", pThread->Id, '|');
-    LOG("%6x%c", pThread->ParentId, '|');
     LOG("%19s%c", pThread->Name, '|');
     LOG("%4U%c", pThread->Priority, '|');
     LOG("%7s%c", _CmdThreadStateToName(pThread->State), '|');

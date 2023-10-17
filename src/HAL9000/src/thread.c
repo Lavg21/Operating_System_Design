@@ -7,13 +7,12 @@
 #include "vmm.h"
 #include "process_internal.h"
 #include "isr.h"
-
 #include "gdtmu.h"
 #include "pe_exports.h"
 
-#define TID_INCREMENT               0x10
+#define TID_INCREMENT               4
 
-#define THREAD_TIME_SLICE           4
+#define THREAD_TIME_SLICE           1
 
 extern void ThreadStart();
 
@@ -28,7 +27,6 @@ extern FUNC_ThreadSwitch            ThreadSwitch;
 
 typedef struct _THREAD_SYSTEM_DATA
 {
-    LOCK                TotalNumberOfThreadsInTheSystemLock;
     LOCK                AllThreadsLock;
 
     _Guarded_by_(AllThreadsLock)
@@ -38,18 +36,9 @@ typedef struct _THREAD_SYSTEM_DATA
 
     _Guarded_by_(ReadyThreadsLock)
     LIST_ENTRY          ReadyThreadsList;
-
-    _Guarded_by_(TotalNumberOfThreadsInTheSystemLock)
-    QWORD               TotalNumberOfThreadsInTheSystem;
 } THREAD_SYSTEM_DATA, *PTHREAD_SYSTEM_DATA;
 
 static THREAD_SYSTEM_DATA m_threadSystemData;
-
-QWORD
-GetTotalNumberOfThreadsInTheSystem()
-{
-    return m_threadSystemData.TotalNumberOfThreadsInTheSystem;
-}
 
 __forceinline
 static
@@ -156,8 +145,6 @@ ThreadSystemPreinit(
 
     InitializeListHead(&m_threadSystemData.ReadyThreadsList);
     LockInit(&m_threadSystemData.ReadyThreadsLock);
-
-    LockInit(&m_threadSystemData.TotalNumberOfThreadsInTheSystemLock);
 }
 
 STATUS
@@ -427,11 +414,6 @@ ThreadCreateEx(
     }
 
     *Thread = pThread;
-    //m_threadSystemData.TotalNumberOfThreadsInTheSystem = m_threadSystemData->TotalNumberOfThreadsInTheSystem + 1;
-
-    LOG("The thread with the name %s and id %d was created!\n", pThread->Name, pThread->Id);
-
-    pThread->ParentId = GetCurrentThread()->Id;
 
     return status;
 }
@@ -582,12 +564,9 @@ ThreadExit(
 
     ProcessNotifyThreadTermination(pThread);
 
-    LOG("The thread with the name %s and id %d was finished!\n", pThread->Name, pThread->Id);
-
     LockAcquire(&m_threadSystemData.ReadyThreadsLock, &oldState);
     _ThreadSchedule();
     NOT_REACHED;
-
 }
 
 BOOLEAN
@@ -814,15 +793,12 @@ _ThreadInit(
         pThread->Id = _ThreadSystemGetNextTid();
         pThread->State = ThreadStateBlocked;
         pThread->Priority = Priority;
+
         LockInit(&pThread->BlockLock);
 
         LockAcquire(&m_threadSystemData.AllThreadsLock, &oldIntrState);
         InsertTailList(&m_threadSystemData.AllThreadsList, &pThread->AllList);
         LockRelease(&m_threadSystemData.AllThreadsLock, oldIntrState);
-
-        LockAcquire(&m_threadSystemData.TotalNumberOfThreadsInTheSystemLock, &oldIntrState);
-        m_threadSystemData.TotalNumberOfThreadsInTheSystem++;
-        LockRelease(&m_threadSystemData.TotalNumberOfThreadsInTheSystemLock, oldIntrState);
     }
     __finally
     {
