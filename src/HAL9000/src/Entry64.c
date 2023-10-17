@@ -58,6 +58,9 @@ Entry64(
     DumpParameters(argv);
 
     status = SystemInit(argv);
+    LogSetLevel(LogLevelTrace);
+    LogSetTracedComponents(LogComponentThread);
+
     ASSERT(SUCCEEDED(status));
 
     LOGL("InitSystem executed successfully\n");

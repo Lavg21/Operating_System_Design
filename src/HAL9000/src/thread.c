@@ -173,7 +173,8 @@ ThreadSystemInitMainForCurrentCPU(
 
     LOG_FUNC_START;
 
-    status = STATUS_SUCCESS;
+    //status = STATUS_SUCCESS;
+    status = _ThreadInit(mainThreadName, ThreadPriorityDefault, NULL, FALSE);
     pCpu = GetCurrentPcpu();
     pThread = NULL;
     pProcess = ProcessRetrieveSystemProcess();
@@ -205,6 +206,8 @@ ThreadSystemInitMainForCurrentCPU(
     }
 
     LOG_FUNC_END;
+
+    LogSetLevel(LogLevelError);
 
     return status;
 }
