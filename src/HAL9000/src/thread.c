@@ -393,23 +393,6 @@ ThreadCreateEx(
 
         firstArg =  (QWORD) Function;
         secondArg = (QWORD) Context;
-
-
-        /*if (NULL == pCpu->ThreadData.IdleThread)
-        {
-            pThread->State = ThreadStateReady;
-
-            // this is the IDLE thread creation
-            pCpu->ThreadData.IdleThread = pThread;
-        }
-        else
-        {
-            // added lines
-            GetCurrentThread()-> NumberOfChildrenCreated++;
-            _InterlockedIncrement(GetCurrentThread()->NumberOfActiveChildren);
-
-            ThreadUnblock(pThread);
-        }*/
     }
 
     status = _ThreadSetupInitialState(pThread,
@@ -435,6 +418,12 @@ ThreadCreateEx(
         // added lines
         GetCurrentThread()->NumberOfChildrenCreated++;
        _InterlockedIncrement(&GetCurrentThread()->NumberOfActiveChildren);
+
+       LOG("Thread [ID =%d] is the Xth thread created by thread [ID =%d] on CPU [%d]",
+           pThread->Id,
+           GetCurrentThread()->Id,
+           pThread->CreationCpuApicId
+       );
 
         ThreadUnblock(pThread);
     }
@@ -571,11 +560,30 @@ ThreadExit(
     )
 {
     PTHREAD pThread;
+    PTHREAD pParent;
     INTR_STATE oldState;
 
     LOG_FUNC_START_THREAD;
 
     pThread = GetCurrentThread();
+    pParent = _ThreadReferenceByTid(pThread->ParentId);
+
+    if (!pParent) {
+        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread is already destroyed!",
+            pThread->Id,
+            pThread->CreationCpuApicId,
+            GetCurrentPcpu()->ApicId);
+    }
+    else {
+        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread [ID =%d] still has more %d child threads.",
+            pThread->Id,
+            pThread->CreationCpuApicId,
+            GetCurrentPcpu()->ApicId,
+            pParent->Id,
+            _InterlockedDecrement(&pParent->NumberOfActiveChildren));
+
+        _ThreadDereference(pParent);
+    }
 
     CpuIntrDisable();
 
