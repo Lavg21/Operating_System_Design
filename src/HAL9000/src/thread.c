@@ -103,6 +103,11 @@ _ThreadGetReadyThread(
     void
     );
 
+PTHREAD
+_ThreadReferenceByTid(
+    TID ThreadId
+);
+
 static
 void
 _ThreadForcedExit(
@@ -1125,6 +1130,31 @@ STATUS
     }
 
     NOT_REACHED;
+}
+
+PTHREAD _ThreadReferenceByTid(TID Tid)
+{
+    PTHREAD thread;
+    INTR_STATE oldState;
+    PLIST_ENTRY pListEntry;
+
+    // declarations
+    LockAcquire(&m_threadSystemData.AllThreadsLock, &oldState);
+
+    pListEntry = m_threadSystemData.AllThreadsList.Flink;
+    while (pListEntry != &m_threadSystemData.AllThreadsList)
+    {
+        thread = CONTAINING_RECORD(pListEntry, THREAD, AllList);
+        if (thread->Id == Tid)
+        {
+            _ThreadReference(thread);
+            LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
+            return thread;
+        }
+        pListEntry = pListEntry->Flink;
+    }
+    LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
+    return NULL;
 }
 
 REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
