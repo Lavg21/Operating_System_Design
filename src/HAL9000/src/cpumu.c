@@ -131,10 +131,10 @@ typedef struct _DUMMY_THREAD
     volatile DWORD           NumberOfActiveChildren;
 
     // Stores the number of ticks that the quantum for this process has
-    unsigned int            AllocatedTimeQuantumLength;
+    QWORD                    AllocatedTimeQuantumLength;
 
     // Stores the number of time quanta a thread was allocated
-    unsigned long           AllocatedTimeQuantumCount;
+    QWORD                    AllocatedTimeQuantumCount;
 
     REF_COUNT               RefCnt;
 

@@ -458,6 +458,8 @@ ThreadTick(
     }
 
     // ADDED
+    //LOG("TICK COUNT COMPLETED: %d\n", pThread->TickCountCompleted);
+
     if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
     {
         pThread->AllocatedTimeQuantumCount++;
@@ -466,10 +468,11 @@ ThreadTick(
     pThread->TickCountCompleted++;
 
     // ADDED
-    //if (pThread->TickCountCompleted == 16)
-    //{
-    //    pThread->AllocatedTimeQuantumLength = 2;
-    //}
+    if (pThread->TickCountCompleted == 16)
+    {
+        //LOG("I am here");
+        pThread->AllocatedTimeQuantumLength = 2;
+    }
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
@@ -586,11 +589,6 @@ ThreadExit(
     pParent = _ThreadReferenceByTid(pThread->ParentId); // added
 
     // Added
-    //LOG(" Thread [ID =%d] was allocated %d time quanta \n",
-       // pThread-> Id, 
-        //pThread->AllocatedTimeQuantumCount);
-
-    // Added
     if (!pParent) {
         LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread is already destroyed!",
             pThread->Id,
@@ -606,6 +604,12 @@ ThreadExit(
             _InterlockedDecrement(&pParent->NumberOfActiveChildren));
 
         _ThreadDereference(pParent);
+
+        // Added
+        LOG(" Thread [ID =%d] was allocated %d time quanta of length %d\n",
+            pThread->Id,
+            pThread->AllocatedTimeQuantumCount,
+            pThread->AllocatedTimeQuantumLength);
     }
 
     CpuIntrDisable();
@@ -860,7 +864,6 @@ _ThreadInit(
         // Added lines
         pThread->AllocatedTimeQuantumCount = 0;
         pThread->AllocatedTimeQuantumLength = 4;
-
 
         LockInit(&pThread->BlockLock);
 
