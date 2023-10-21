@@ -460,7 +460,20 @@ ThreadTick(
     {
         pCpu->ThreadData.KernelTicks++;
     }
+
+    // ADDED
+    if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
+    {
+        pThread->AllocatedTimeQuantumCount++;
+    }
+
     pThread->TickCountCompleted++;
+
+    // ADDED
+    //if (pThread->TickCountCompleted == 16)
+    //{
+     //   pThread->AllocatedTimeQuantumLength = 2;
+    //}
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
@@ -573,8 +586,15 @@ ThreadExit(
     LOG_FUNC_START_THREAD;
 
     pThread = GetCurrentThread();
-    pParent = _ThreadReferenceByTid(pThread->ParentId);
 
+    pParent = _ThreadReferenceByTid(pThread->ParentId); // added
+
+    // Added
+    //LOG(" Thread [ID =%d] was allocated %d time quanta \n",
+       // pThread-> Id, 
+        //pThread->AllocatedTimeQuantumCount);
+
+    // Added
     if (!pParent) {
         LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread is already destroyed!",
             pThread->Id,
