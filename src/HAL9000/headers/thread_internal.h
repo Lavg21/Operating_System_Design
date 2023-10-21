@@ -38,8 +38,8 @@ typedef struct _THREAD
 
     TID                     ParentId;
     // For thread as a parent
-    unsigned long           NumberOfChildrenCreated;
-    volatile long           NumberOfActiveChildren;
+    volatile DWORD           NumberOfChildrenCreated;
+    volatile DWORD           NumberOfActiveChildren;
 
     REF_COUNT               RefCnt;
 

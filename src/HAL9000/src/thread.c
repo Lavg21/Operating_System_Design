@@ -388,6 +388,23 @@ ThreadCreateEx(
 
         firstArg =  (QWORD) Function;
         secondArg = (QWORD) Context;
+
+
+        /*if (NULL == pCpu->ThreadData.IdleThread)
+        {
+            pThread->State = ThreadStateReady;
+
+            // this is the IDLE thread creation
+            pCpu->ThreadData.IdleThread = pThread;
+        }
+        else
+        {
+            // added lines
+            GetCurrentThread()-> NumberOfChildrenCreated++;
+            _InterlockedIncrement(GetCurrentThread()->NumberOfActiveChildren);
+
+            ThreadUnblock(pThread);
+        }*/
     }
 
     status = _ThreadSetupInitialState(pThread,
@@ -410,6 +427,9 @@ ThreadCreateEx(
     }
     else
     {
+ //       GetCurrentThread()->NumberOfChildrenCreated++;
+ //      _InterlockedIncrement(GetCurrentThread()->NumberOfActiveChildren);
+
         ThreadUnblock(pThread);
     }
 
