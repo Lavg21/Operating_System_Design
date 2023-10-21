@@ -462,18 +462,18 @@ ThreadTick(
     }
 
     // ADDED
-    if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
-    {
-        pThread->AllocatedTimeQuantumCount++;
-    }
+    //if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
+    //{
+    //    pThread->AllocatedTimeQuantumCount++;
+    //}
 
     pThread->TickCountCompleted++;
 
     // ADDED
-    //if (pThread->TickCountCompleted == 16)
-    //{
-     //   pThread->AllocatedTimeQuantumLength = 2;
-    //}
+    if (pThread->TickCountCompleted == 16)
+    {
+        pThread->AllocatedTimeQuantumLength = 2;
+    }
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
