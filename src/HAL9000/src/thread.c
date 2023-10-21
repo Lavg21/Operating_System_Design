@@ -418,7 +418,7 @@ ThreadCreateEx(
     }
     else
     {
-        // added lines
+        // Added lines
         GetCurrentThread()->NumberOfChildrenCreated++;
        _InterlockedIncrement(&GetCurrentThread()->NumberOfActiveChildren);
 
@@ -430,6 +430,10 @@ ThreadCreateEx(
 
         ThreadUnblock(pThread);
     }
+
+    // Added lines
+    pThread->AllocatedTimeQuantumCount = 0;
+    pThread->AllocatedTimeQuantumLength = 4;
 
     *Thread = pThread;
 
