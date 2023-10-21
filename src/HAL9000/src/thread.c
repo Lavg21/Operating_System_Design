@@ -794,6 +794,13 @@ _ThreadInit(
         pThread->State = ThreadStateBlocked;
         pThread->Priority = Priority;
 
+        // ADDED lines
+        pThread->CreationCpuApicId = GetCurrentPcpu()-> ApicId;
+        PTHREAD currentThread = GetCurrentThread();
+        pThread->ParentId = currentThread ? currentThread->Id : 0;
+        pThread->NumberOfActiveChildren = 0;
+
+
         LockInit(&pThread->BlockLock);
 
         LockAcquire(&m_threadSystemData.AllThreadsLock, &oldIntrState);

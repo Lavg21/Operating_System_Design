@@ -120,6 +120,14 @@ _CpuMuCollectExtendedInformation(
 // However, as not to confuse people by updating the `THREAD` structure after the semester has started this is the current solution
 typedef struct _DUMMY_THREAD
 {
+    // We store the CPU a thread was created on
+    APIC_ID                 CreationCpuApicId;
+
+    TID                     ParentId;
+    // For thread as a parent
+    unsigned long           NumberOfChildrenCreated;
+    volatile long           NumberOfActiveChildren;
+
     REF_COUNT               RefCnt;
 
     struct _THREAD* Self;
