@@ -427,8 +427,9 @@ ThreadCreateEx(
     }
     else
     {
- //       GetCurrentThread()->NumberOfChildrenCreated++;
- //      _InterlockedIncrement(GetCurrentThread()->NumberOfActiveChildren);
+        // added lines
+        GetCurrentThread()->NumberOfChildrenCreated++;
+       _InterlockedIncrement(&GetCurrentThread()->NumberOfActiveChildren);
 
         ThreadUnblock(pThread);
     }
