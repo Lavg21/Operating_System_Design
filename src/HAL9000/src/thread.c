@@ -103,6 +103,9 @@ _ThreadGetReadyThread(
     void
     );
 
+REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
+static
+_Ret_notnull_
 PTHREAD
 _ThreadReferenceByTid(
     TID ThreadId
@@ -1140,6 +1143,9 @@ STATUS
     NOT_REACHED;
 }
 
+REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
+static
+_Ret_notnull_
 PTHREAD _ThreadReferenceByTid(TID Tid)
 {
     PTHREAD thread;
