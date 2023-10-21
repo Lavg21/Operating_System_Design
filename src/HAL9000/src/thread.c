@@ -10,7 +10,7 @@
 #include "gdtmu.h"
 #include "pe_exports.h"
 
-#define TID_INCREMENT               4
+#define TID_INCREMENT               5
 
 #define THREAD_TIME_SLICE           1
 
@@ -855,7 +855,7 @@ _ThreadInit(
         pThread->State = ThreadStateBlocked;
         pThread->Priority = Priority;
 
-        // ADDED lines
+        // ADDED LINES
         pThread->CreationCpuApicId = GetCurrentPcpu()-> ApicId;
         PTHREAD currentThread = GetCurrentThread();
         pThread->ParentId = currentThread ? currentThread->Id : 0;

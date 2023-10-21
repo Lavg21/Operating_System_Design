@@ -34,10 +34,10 @@ typedef DWORD           THREAD_FLAGS;
 typedef struct _THREAD
 {
     // Stores the number of ticks that the quantum for this process has
-    QWORD                   AllocatedTimeQuantumLength;
+    unsigned int            AllocatedTimeQuantumLength;
 
     // Stores the number of time quanta a thread was allocated
-    QWORD                   AllocatedTimeQuantumCount;
+    unsigned long           AllocatedTimeQuantumCount;
 
     // Store the CPU a thread was created on
     APIC_ID                 CreationCpuApicId;
@@ -46,6 +46,7 @@ typedef struct _THREAD
     TID                     ParentId;
 
     // For thread as a parent
+    // Volatile - for interlocked operations
     volatile DWORD          NumberOfChildrenCreated;
     volatile DWORD          NumberOfActiveChildren;
 
