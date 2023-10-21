@@ -431,10 +431,6 @@ ThreadCreateEx(
         ThreadUnblock(pThread);
     }
 
-    // Added lines
-    pThread->AllocatedTimeQuantumCount = 0;
-    pThread->AllocatedTimeQuantumLength = 4;
-
     *Thread = pThread;
 
     return status;
@@ -462,18 +458,18 @@ ThreadTick(
     }
 
     // ADDED
-    //if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
-    //{
-    //    pThread->AllocatedTimeQuantumCount++;
-    //}
+    if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
+    {
+        pThread->AllocatedTimeQuantumCount++;
+    }
 
     pThread->TickCountCompleted++;
 
     // ADDED
-    if (pThread->TickCountCompleted == 16)
-    {
-        pThread->AllocatedTimeQuantumLength = 2;
-    }
+    //if (pThread->TickCountCompleted == 16)
+    //{
+    //    pThread->AllocatedTimeQuantumLength = 2;
+    //}
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
@@ -860,6 +856,10 @@ _ThreadInit(
         PTHREAD currentThread = GetCurrentThread();
         pThread->ParentId = currentThread ? currentThread->Id : 0;
         pThread->NumberOfActiveChildren = 0;
+
+        // Added lines
+        pThread->AllocatedTimeQuantumCount = 0;
+        pThread->AllocatedTimeQuantumLength = 4;
 
 
         LockInit(&pThread->BlockLock);
