@@ -10,7 +10,7 @@
 #include "gdtmu.h"
 #include "pe_exports.h"
 
-#define TID_INCREMENT               5
+#define TID_INCREMENT               4
 
 #define THREAD_TIME_SLICE           1
 
@@ -102,14 +102,6 @@ PTHREAD
 _ThreadGetReadyThread(
     void
     );
-
-REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
-static
-_Ret_notnull_
-PTHREAD
-_ThreadReferenceByTid(
-    TID ThreadId
-);
 
 static
 void
@@ -418,16 +410,6 @@ ThreadCreateEx(
     }
     else
     {
-        // Added lines
-        GetCurrentThread()->NumberOfChildrenCreated++;
-       _InterlockedIncrement(&GetCurrentThread()->NumberOfActiveChildren);
-
-       LOG("Thread [ID =%d] is the Xth thread created by thread [ID =%d] on CPU [%d]",
-           pThread->Id,
-           GetCurrentThread()->Id,
-           pThread->CreationCpuApicId
-       );
-
         ThreadUnblock(pThread);
     }
 
@@ -456,23 +438,7 @@ ThreadTick(
     {
         pCpu->ThreadData.KernelTicks++;
     }
-
-    // ADDED
-    //LOG("TICK COUNT COMPLETED: %d\n", pThread->TickCountCompleted);
-
-    if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
-    {
-        pThread->AllocatedTimeQuantumCount++;
-    }
-
     pThread->TickCountCompleted++;
-
-    // ADDED
-    if (pThread->TickCountCompleted == 16)
-    {
-        //LOG("I am here");
-        pThread->AllocatedTimeQuantumLength = 2;
-    }
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
@@ -579,38 +545,11 @@ ThreadExit(
     )
 {
     PTHREAD pThread;
-    PTHREAD pParent;
     INTR_STATE oldState;
 
     LOG_FUNC_START_THREAD;
 
     pThread = GetCurrentThread();
-
-    pParent = _ThreadReferenceByTid(pThread->ParentId); // added
-
-    // Added
-    if (!pParent) {
-        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread is already destroyed!",
-            pThread->Id,
-            pThread->CreationCpuApicId,
-            GetCurrentPcpu()->ApicId);
-    }
-    else {
-        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread [ID =%d] still has more %d child threads.",
-            pThread->Id,
-            pThread->CreationCpuApicId,
-            GetCurrentPcpu()->ApicId,
-            pParent->Id,
-            _InterlockedDecrement(&pParent->NumberOfActiveChildren));
-
-        _ThreadDereference(pParent);
-
-        // Added
-        LOG(" Thread [ID =%d] was allocated %d time quanta of length %d\n",
-            pThread->Id,
-            pThread->AllocatedTimeQuantumCount,
-            pThread->AllocatedTimeQuantumLength);
-    }
 
     CpuIntrDisable();
 
@@ -854,16 +793,6 @@ _ThreadInit(
         pThread->Id = _ThreadSystemGetNextTid();
         pThread->State = ThreadStateBlocked;
         pThread->Priority = Priority;
-
-        // ADDED LINES
-        pThread->CreationCpuApicId = GetCurrentPcpu()-> ApicId;
-        PTHREAD currentThread = GetCurrentThread();
-        pThread->ParentId = currentThread ? currentThread->Id : 0;
-        pThread->NumberOfActiveChildren = 0;
-
-        // Added lines
-        pThread->AllocatedTimeQuantumCount = 0;
-        pThread->AllocatedTimeQuantumLength = 4;
 
         LockInit(&pThread->BlockLock);
 
@@ -1168,34 +1097,6 @@ STATUS
     }
 
     NOT_REACHED;
-}
-
-REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
-static
-_Ret_notnull_
-PTHREAD _ThreadReferenceByTid(TID Tid)
-{
-    PTHREAD thread;
-    INTR_STATE oldState;
-    PLIST_ENTRY pListEntry;
-
-    // declarations
-    LockAcquire(&m_threadSystemData.AllThreadsLock, &oldState);
-
-    pListEntry = m_threadSystemData.AllThreadsList.Flink;
-    while (pListEntry != &m_threadSystemData.AllThreadsList)
-    {
-        thread = CONTAINING_RECORD(pListEntry, THREAD, AllList);
-        if (thread->Id == Tid)
-        {
-            _ThreadReference(thread);
-            LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
-            return thread;
-        }
-        pListEntry = pListEntry->Flink;
-    }
-    LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
-    return NULL;
 }
 
 REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)

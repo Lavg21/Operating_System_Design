@@ -134,8 +134,6 @@ void
     LOG("%5s", "Prio|");
     LOG("%8s", "State|");
     LOG("%10s", "Cmp ticks|");
-    LOG("%10s", "Count|");
-    LOG("%10s", "Length|");
     LOG("%10s", "Prt ticks|");
     LOG("%10s", "Ttl ticks|");
     LOG("%10s", "Process|");
@@ -691,9 +689,7 @@ STATUS
     LOG("%19s%c", pThread->Name, '|');
     LOG("%4U%c", pThread->Priority, '|');
     LOG("%7s%c", _CmdThreadStateToName(pThread->State), '|');
-    LOG("%9U%c", pThread->TickCountCompleted, '|');    
-    LOG("%9U%c", pThread->AllocatedTimeQuantumCount, '|');
-    LOG("%9U%c", pThread->AllocatedTimeQuantumLength, '|');
+    LOG("%9U%c", pThread->TickCountCompleted, '|');
     LOG("%9U%c", pThread->TickCountEarly, '|');
     LOG("%9U%c", pThread->TickCountCompleted + pThread->TickCountEarly, '|');
     LOG("%9x%c", pThread->Process->Id, '|');
