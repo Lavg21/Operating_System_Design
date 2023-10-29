@@ -10,7 +10,7 @@
 #include "gdtmu.h"
 #include "pe_exports.h"
 
-#define TID_INCREMENT               4
+#define TID_INCREMENT               5    // instead of 4
 
 #define THREAD_TIME_SLICE           1
 
@@ -102,6 +102,16 @@ PTHREAD
 _ThreadGetReadyThread(
     void
     );
+
+// ADDED FUNCTION
+// Allows us to retrieve the a pointer to the thread with a given ID
+REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
+static
+_Ret_notnull_
+PTHREAD
+_ThreadReferenceByTid(
+    TID ThreadId
+);
 
 static
 void
@@ -410,6 +420,21 @@ ThreadCreateEx(
     }
     else
     {
+        // ADDED LINES - First task
+
+        // Count the number of active children for a given thread
+        GetCurrentThread()->NumberOfChildrenCreated++;
+       _InterlockedIncrement(&GetCurrentThread()->NumberOfActiveChildren);
+
+       // We increment before unblocking child because that is the
+       // place where we know for sure the thread will be initialized successfully
+
+       LOG("Thread [ID =%d] is the Xth thread created by thread [ID =%d] on CPU [%d]",
+           pThread->Id,
+           GetCurrentThread()->Id,
+           pThread->CreationCpuApicId
+       );
+
         ThreadUnblock(pThread);
     }
 
@@ -438,7 +463,22 @@ ThreadTick(
     {
         pCpu->ThreadData.KernelTicks++;
     }
+
+    // ADDED LINES - Round Robin
+
+    if (pThread->TickCountCompleted % pThread->AllocatedTimeQuantumLength == 0)
+    {
+        pThread->AllocatedTimeQuantumCount++;
+    }
+
     pThread->TickCountCompleted++;
+
+    // ADDED
+    if (pThread->TickCountCompleted == 16)
+    {
+        //LOG("I am here");
+        pThread->AllocatedTimeQuantumLength = 2;
+    }
 
     if (++pCpu->ThreadData.RunningThreadTicks >= THREAD_TIME_SLICE)
     {
@@ -545,11 +585,46 @@ ThreadExit(
     )
 {
     PTHREAD pThread;
+    PTHREAD pParent;
     INTR_STATE oldState;
 
     LOG_FUNC_START_THREAD;
 
     pThread = GetCurrentThread();
+
+    // ADDED LINES - First task
+
+    // Get a pointer to the parent
+    pParent = _ThreadReferenceByTid(pThread->ParentId); 
+
+    // _ThreadExit  runs in the context of the child process
+    if (!pParent) {
+
+        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread is already destroyed!",
+            pThread->Id,
+            pThread->CreationCpuApicId,
+            GetCurrentPcpu()->ApicId);
+    } else {
+        
+        // After we get the pointer we will also decrement the NumberOfActiveChildren field for the parent
+        // We use InterlockedDecrement to mark that this child becomes inactive
+        LOG("Thread [ID =%d] created on CPU [ID =%d] is finishing on CPU [ID =%d], while it ’s parent thread [ID =%d] still has more %d child threads.",
+            pThread->Id,
+            pThread->CreationCpuApicId,
+            GetCurrentPcpu()->ApicId,
+            pParent->Id,
+            _InterlockedDecrement(&pParent->NumberOfActiveChildren));
+
+        //  Due to how we implemented _ThreadReferenceByTid we need to dereference the
+        // parent if we were able to retrieve the pointer to it
+        _ThreadDereference(pParent);
+
+        // ADDED LINE - Round Robin
+        LOG(" Thread [ID =%d] was allocated %d time quanta of length %d\n",
+            pThread->Id,
+            pThread->AllocatedTimeQuantumCount,
+            pThread->AllocatedTimeQuantumLength);
+    }
 
     CpuIntrDisable();
 
@@ -793,6 +868,24 @@ _ThreadInit(
         pThread->Id = _ThreadSystemGetNextTid();
         pThread->State = ThreadStateBlocked;
         pThread->Priority = Priority;
+
+        // ADDED LINES - First task
+
+        // We alter the functionality of the _ThreadSystemGetNextTid
+        // such as to produce thread id numbers that are multiples of 8
+        pThread->CreationCpuApicId = GetCurrentPcpu()-> ApicId;
+
+        PTHREAD currentThread = GetCurrentThread();
+        // We need to check the returned value
+        // because _ThreadInit is also called in ThreadSystemInitMainForCurrentCPU,
+        // where don’t yet have a “current thread” -> GetCurrentPcpu() = null
+        pThread->ParentId = currentThread ? currentThread->Id : 0;
+        pThread->NumberOfActiveChildren = 0;
+
+        // ADDED LINES - Round Robin
+        // Allocate a time quantum of 4 ticks to the newly created thread
+        pThread->AllocatedTimeQuantumCount = 0;
+        pThread->AllocatedTimeQuantumLength = 4;
 
         LockInit(&pThread->BlockLock);
 
@@ -1097,6 +1190,48 @@ STATUS
     }
 
     NOT_REACHED;
+}
+
+// ADDED FUNCTION
+
+// Allows us to retrieve the a pointer to the thread with a given ID,
+// because it iterates over the global list of threads
+// and returns the thread with the requested ID
+// I used lock on it in order to not have race conditions
+REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
+static
+_Ret_notnull_
+PTHREAD _ThreadReferenceByTid(TID Tid)
+{
+    PTHREAD thread;
+    INTR_STATE oldState;
+    PLIST_ENTRY pListEntry;
+
+    LockAcquire(&m_threadSystemData.AllThreadsLock, &oldState);
+
+    pListEntry = m_threadSystemData.AllThreadsList.Flink;
+
+    while (pListEntry != &m_threadSystemData.AllThreadsList)
+    {
+        thread = CONTAINING_RECORD(pListEntry, THREAD, AllList);
+
+        if (thread->Id == Tid)
+        {
+            _ThreadReference(thread);
+
+            LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
+
+            return thread;
+        }
+
+        pListEntry = pListEntry->Flink;
+    }
+
+    // We reference the thread before releasing it to avoid a race condition between
+    // returning the thread and it being freed
+    LockRelease(&m_threadSystemData.AllThreadsLock, oldState);
+
+    return NULL;
 }
 
 REQUIRES_EXCL_LOCK(m_threadSystemData.ReadyThreadsLock)
