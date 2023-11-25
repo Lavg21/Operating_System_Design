@@ -7,6 +7,8 @@
 #include "mmu.h"
 #include "process_internal.h"
 #include "dmp_cpu.h"
+#include "thread_internal.h"
+#include "cpumu.h"
 
 extern void SyscallEntry();
 
@@ -67,7 +69,36 @@ SyscallHandler(
         case SyscallIdIdentifyVersion:
             status = SyscallValidateInterface((SYSCALL_IF_VERSION)*pSyscallParameters);
             break;
+        case SyscallIdFileWrite:
+            status = SyscallFileWrite((UM_HANDLE)pSyscallParameters[0],
+                                      (PVOID)pSyscallParameters[1],
+                                      (QWORD)pSyscallParameters[2],
+                                      (QWORD*)pSyscallParameters[3]);
+            break;
+        case SyscallIdProcessExit:
+            status = SyscallProcessExit((STATUS)pSyscallParameters[0]);
+            break;
+        case SyscallIdThreadExit:
+            status = SyscallThreadExit((STATUS)pSyscallParameters[0]);
+            break;
         // STUDENT TODO: implement the rest of the syscalls
+        //case SyscallThreadGetTid:
+        case SyscallIdProcessGetName:
+            status = SyscallProcessGetName((char*)pSyscallParameters[0],
+                                           (QWORD)pSyscallParameters[1]);
+            break;
+        case SyscallIdGetThreadPriority:
+            status = SyscallGetThreadPriority((THREAD_PRIORITY)pSyscallParameters[0]);
+            break;
+        case SyscallIdSetThreadPriorityfunction:
+            status = SyscallSetThreadPriority((BYTE)pSyscallParameters[0]);
+            break;
+        case SyscallIdGetCurrentCPUID:
+            status = SyscallGetCurrentCPUID((BYTE*)pSyscallParameters[0]);
+            break;
+        case SyscallIdGetNumberOfThreadsForCurrentProcess:
+            status = SyscallGetNumberOfThreadsForCurrentProcess((QWORD*)pSyscallParameters[0]);
+            break;
         default:
             LOG_ERROR("Unimplemented syscall called from User-space!\n");
             status = STATUS_UNSUPPORTED;
@@ -169,4 +200,134 @@ SyscallValidateInterface(
     return STATUS_SUCCESS;
 }
 
+STATUS
+SyscallFileWrite(
+    IN  UM_HANDLE                   FileHandle,
+    IN_READS_BYTES(BytesToWrite)
+    PVOID                           Buffer,
+    IN  QWORD                       BytesToWrite,
+    OUT QWORD* BytesWritten
+)
+{
+    if (FileHandle == UM_FILE_HANDLE_STDOUT) {
+        LOG("Buffer:%s\n", Buffer);
+        *BytesWritten = BytesToWrite;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+STATUS
+SyscallProcessExit(
+    IN      STATUS                  ExitStatus
+)
+{
+    UNREFERENCED_PARAMETER(ExitStatus);
+
+    ProcessTerminate(NULL);
+
+    return STATUS_SUCCESS;
+}
+
+STATUS
+SyscallThreadExit(
+    IN      STATUS                  ExitStatus
+)
+{
+    ThreadExit(ExitStatus);
+
+    return STATUS_SUCCESS;
+}
 // STUDENT TODO: implement the rest of the syscalls
+/*STATUS
+SyscallThreadGetTid(
+    IN_OPT UM_HANDLE                ThreadHandle,
+    OUT TID*                        ThreadId
+)
+{
+    PTHREAD pThread = GetCurrentThread();
+    // Get the ID of the calling thread
+    TID currentThreadId = pThread->Id;
+    // Check if ThreadId is valid
+    if (ThreadId != NULL) {
+        *ThreadId = currentThreadId;
+        return STATUS_SUCCESS;
+    }
+    else {
+        return STATUS_UNSUCCESSFUL;
+    }
+}*/
+
+STATUS SyscallProcessGetName(OUT char* ProcessName, IN QWORD ProcessNameMaxLen) {
+
+    // Retrieve the process name
+    char* currentProcessName = GetCurrentProcess()->ProcessName;
+
+    if (currentProcessName == NULL) {
+        return STATUS_INVALID_PARAMETER1;
+    }
+
+    // Determine the length of the process name
+    int processNameLength = strlen(currentProcessName);
+
+    if (processNameLength >= ProcessNameMaxLen) {
+        // Truncate the process name if it doesn't fit entirely
+        strncpy(ProcessName, currentProcessName, (DWORD) ProcessNameMaxLen - 1);
+        // Ensure the last character is '\0'
+        ProcessName[ProcessNameMaxLen - 1] = '\0';
+        return STATUS_SUCCESS;
+    }
+    else {
+        // Copy the entire process name
+        strcpy(ProcessName, currentProcessName);
+        return STATUS_SUCCESS;
+    }
+}
+
+STATUS SyscallGetThreadPriority(OUT THREAD_PRIORITY ThreadPriority) {
+
+    // Get the priority of the current thread
+    PTHREAD pThread = GetCurrentThread();
+
+    // Assign the thread priority to the output parameter
+    ThreadPriority = ThreadGetPriority(pThread);
+
+    return STATUS_SUCCESS;
+}
+
+STATUS SyscallSetThreadPriority(IN BYTE ThreadPriority) {
+
+    // Assign the thread priority to the input priority
+    ThreadSetPriority(ThreadPriority);
+
+    return STATUS_SUCCESS;
+}
+
+STATUS SyscallGetCurrentCPUID(OUT BYTE* CpuId) {
+
+    PCPU* pCpu;
+
+    // Retrieve the CPU ID where the current thread
+    pCpu = GetCurrentPcpu();
+
+    // Check if the CPU ID can be retrieved
+    if (pCpu->ApicId < 0) {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // Assign the CPU ID to the output parameter
+    *CpuId = pCpu->ApicId;
+
+    return STATUS_SUCCESS;
+}
+
+STATUS SyscallGetNumberOfThreadsForCurrentProcess(OUT QWORD* ThreadNo) {
+
+    // Count the number of threads for the current process
+    DWORD threads = GetCurrentProcess()->NumberOfThreads;
+
+    // Assign the thread count to the output parameter
+    *ThreadNo = threads;
+
+    return STATUS_SUCCESS;
+}

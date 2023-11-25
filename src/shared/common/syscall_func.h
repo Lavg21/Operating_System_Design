@@ -306,3 +306,50 @@ SyscallFileWrite(
     IN  QWORD                       BytesToWrite,
     OUT QWORD*                      BytesWritten
     );
+
+STATUS 
+SyscallThreadGetTid(
+    IN_OPT UM_HANDLE                ThreadHandle, 
+    OUT TID*                        ThreadId
+);
+
+STATUS 
+SyscallProcessGetName(
+    OUT char*                       ProcessName, 
+    IN QWORD                        ProcessNameMaxLen
+);
+STATUS SyscallProcessGetName(
+    OUT char*                       ProcessName, 
+    IN QWORD                        ProcessNameMaxLen
+);
+
+STATUS 
+SyscallGetThreadPriority(
+    OUT THREAD_PRIORITY             ThreadPriority
+);
+
+STATUS 
+SyscallSetThreadPriority(
+    IN BYTE ThreadPriority
+);
+
+STATUS 
+SyscallSetThreadPriority(
+    IN BYTE                         ThreadPriority
+);
+
+STATUS 
+SyscallGetCurrentCPUID(
+    OUT BYTE*                       CpuId
+);
+
+STATUS 
+SyscallGetNumberOfThreadsForCurrentProcess(
+    OUT QWORD*                      ThreadNo
+);
+
+STATUS 
+SyscallGetCPUUtilization(
+    IN_OPT BYTE*                    CpuId, 
+    OUT BYTE*                       Utilization
+);
