@@ -308,29 +308,15 @@ SyscallFileWrite(
     );
 
 STATUS 
-SyscallThreadGetTid(
-    IN_OPT UM_HANDLE                ThreadHandle, 
-    OUT TID*                        ThreadId
-);
-
-STATUS 
 SyscallProcessGetName(
     OUT char*                       ProcessName, 
     IN QWORD                        ProcessNameMaxLen
 );
-STATUS SyscallProcessGetName(
-    OUT char*                       ProcessName, 
-    IN QWORD                        ProcessNameMaxLen
-);
+
 
 STATUS 
 SyscallGetThreadPriority(
-    OUT THREAD_PRIORITY             ThreadPriority
-);
-
-STATUS 
-SyscallSetThreadPriority(
-    IN BYTE ThreadPriority
+    OUT BYTE*                       ThreadPriority
 );
 
 STATUS 

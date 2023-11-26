@@ -9,6 +9,7 @@
 #include "dmp_cpu.h"
 #include "thread_internal.h"
 #include "cpumu.h"
+#include "smp.h"
 
 extern void SyscallEntry();
 
@@ -82,13 +83,16 @@ SyscallHandler(
             status = SyscallThreadExit((STATUS)pSyscallParameters[0]);
             break;
         // STUDENT TODO: implement the rest of the syscalls
-        //case SyscallThreadGetTid:
+        case SyscallIdThreadGetTid:
+            status = SyscallThreadGetTid((UM_HANDLE)pSyscallParameters[0],
+                                          (TID*)pSyscallParameters[1]);
+            break;
         case SyscallIdProcessGetName:
             status = SyscallProcessGetName((char*)pSyscallParameters[0],
                                            (QWORD)pSyscallParameters[1]);
             break;
         case SyscallIdGetThreadPriority:
-            status = SyscallGetThreadPriority((THREAD_PRIORITY)pSyscallParameters[0]);
+            status = SyscallGetThreadPriority((BYTE*)pSyscallParameters[0]);
             break;
         case SyscallIdSetThreadPriorityfunction:
             status = SyscallSetThreadPriority((BYTE)pSyscallParameters[0]);
@@ -98,6 +102,10 @@ SyscallHandler(
             break;
         case SyscallIdGetNumberOfThreadsForCurrentProcess:
             status = SyscallGetNumberOfThreadsForCurrentProcess((QWORD*)pSyscallParameters[0]);
+            break;
+        case SyscallIdGetCPUUtilization:
+            status = SyscallGetCPUUtilization((BYTE*)pSyscallParameters[0], 
+                                              (BYTE*)pSyscallParameters[1]);
             break;
         default:
             LOG_ERROR("Unimplemented syscall called from User-space!\n");
@@ -239,24 +247,23 @@ SyscallThreadExit(
     return STATUS_SUCCESS;
 }
 // STUDENT TODO: implement the rest of the syscalls
-/*STATUS
+
+STATUS
 SyscallThreadGetTid(
     IN_OPT UM_HANDLE                ThreadHandle,
     OUT TID*                        ThreadId
 )
 {
-    PTHREAD pThread = GetCurrentThread();
-    // Get the ID of the calling thread
-    TID currentThreadId = pThread->Id;
-    // Check if ThreadId is valid
-    if (ThreadId != NULL) {
-        *ThreadId = currentThreadId;
+    if (ThreadHandle == UM_INVALID_HANDLE_VALUE) {
+        *ThreadId = GetCurrentThread()->Id;
         return STATUS_SUCCESS;
     }
-    else {
-        return STATUS_UNSUCCESSFUL;
-    }
-}*/
+
+    *ThreadId = ((PTHREAD) ThreadHandle)->Id;
+
+    return STATUS_SUCCESS;
+}
+
 
 STATUS SyscallProcessGetName(OUT char* ProcessName, IN QWORD ProcessNameMaxLen) {
 
@@ -284,13 +291,21 @@ STATUS SyscallProcessGetName(OUT char* ProcessName, IN QWORD ProcessNameMaxLen) 
     }
 }
 
-STATUS SyscallGetThreadPriority(OUT THREAD_PRIORITY ThreadPriority) {
+STATUS SyscallGetThreadPriority(OUT BYTE* ThreadPriority) {
 
     // Get the priority of the current thread
     PTHREAD pThread = GetCurrentThread();
 
-    // Assign the thread priority to the output parameter
-    ThreadPriority = ThreadGetPriority(pThread);
+    // Get priority of thread
+    THREAD_PRIORITY threadPriority = ThreadGetPriority(pThread);
+
+    if (threadPriority == ThreadPriorityLowest) {
+        ThreadPriority = (BYTE*)0;
+    } else if (threadPriority == ThreadPriorityDefault) {
+        ThreadPriority = (BYTE*)16;
+    } else if (threadPriority == ThreadPriorityMaximum) {
+        ThreadPriority = (BYTE*)31;
+    }
 
     return STATUS_SUCCESS;
 }
@@ -328,6 +343,32 @@ STATUS SyscallGetNumberOfThreadsForCurrentProcess(OUT QWORD* ThreadNo) {
 
     // Assign the thread count to the output parameter
     *ThreadNo = threads;
+
+    return STATUS_SUCCESS;
+}
+
+STATUS SyscallGetCPUUtilization(IN_OPT BYTE* CpuId, OUT BYTE* Utilization) {
+    PLIST_ENTRY pCpuListHead;
+    SmpGetCpuList(&pCpuListHead);
+
+    LIST_ENTRY* pCurEntry;
+    for (pCurEntry = pCpuListHead->Flink; pCurEntry != pCpuListHead; pCurEntry = pCurEntry->Flink) {
+        PCPU* pCpu = CONTAINING_RECORD(pCurEntry, PCPU, ListEntry);
+
+        if (CpuId == NULL || *CpuId == pCpu->ApicId) {
+            QWORD totalTicks = pCpu->ThreadData.IdleTicks + pCpu->ThreadData.KernelTicks;
+
+            // Check if totalTicks is not 0 to avoid division by zero
+            QWORD percentage = (totalTicks != 0) ? (pCpu->ThreadData.IdleTicks * 10000) / totalTicks : 0;
+
+            // Assign the calculated percentage to the OUT parameter
+            *Utilization = (BYTE)percentage;
+
+            if (CpuId != NULL) {
+                break;
+            }
+        }
+    }
 
     return STATUS_SUCCESS;
 }

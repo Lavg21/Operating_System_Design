@@ -8,7 +8,7 @@ STATUS
 __main(
     DWORD       argc,
     char**      argv
-    )
+)
 {
     STATUS status;
     TID tid;
@@ -25,6 +25,61 @@ __main(
         LOG("Argument[%u] is %s\n", i, argv[i]);
     }
 
+    // Student
+    char* processName = NULL;
+    status = SyscallProcessGetName(processName, 1);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallProcessGetName", status);
+        return status;
+    }
+
+    LOG("The name of the process with length 1 is : %s\n", &processName);
+
+    status = SyscallProcessGetName(processName, 3);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallProcessGetName", status);
+        return status;
+    }
+
+    LOG("The name of the process with length 3 is : %s\n", &processName);
+
+    status = SyscallProcessGetName(processName, 0x1234);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallProcessGetName", status);
+        return status;
+    }
+
+    LOG("The name of the process with length 0x1234 is : %s\n", &processName);
+
+    BYTE currentPriority = 0;
+    status = SyscallGetThreadPriority(&currentPriority);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallGetThreadPriority", status);
+        return status;
+    }
+    LOG("Status: %d, Current priority: %d", status, currentPriority);
+
+    currentPriority++;
+    status = SyscallSetThreadPriority(currentPriority);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallSetThreadPriority", status);
+        return status;
+    }
+    LOG("Status: %d, Current set priority: %d", status, currentPriority);
+
+    status = SyscallGetThreadPriority(&currentPriority);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallGetThreadPriority", status);
+        return status;
+    }
+    LOG("Status: %d, Current priority: %d", status, currentPriority);
+
     status = SyscallProcessGetPid(UM_INVALID_HANDLE_VALUE, &pid);
     if (!SUCCEEDED(status))
     {
@@ -34,7 +89,31 @@ __main(
 
     LOG("Hello from process with ID 0x%X\n", pid);
 
+    QWORD* threadNo = NULL;
+    status = SyscallGetNumberOfThreadsForCurrentProcess(threadNo);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallGetNumberOfThreadsForCurrentProcess", status);
+        return status;
+    }
+    LOG("Status: %d, Number of thread: %d", status, &threadNo);
 
+    /*
+    BYTE utilization;
+    PCPU* pCpu;
+
+    pCpu = GetCurrentPcpu();
+
+    status = SyscallGetCPUUtilization(pCpu->ApicId, &utilization);
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("SyscallGetCPUUtilization", status);
+        return status;
+    }
+
+    LOG("Status: %d, CPU ID: %d", status, pcpu->ApicId);*/
+
+    // Stop
     status = SyscallThreadGetTid(UM_INVALID_HANDLE_VALUE, &tid);
     if (!SUCCEEDED(status))
     {
@@ -44,7 +123,7 @@ __main(
 
     LOG("Hello from thread with ID 0x%X\n", tid);
 
-    status = UmThreadCreate(_HelloWorldFromThread, (PVOID)(QWORD) argc, &umHandle);
+    status = UmThreadCreate(_HelloWorldFromThread, (PVOID)(QWORD)argc, &umHandle);
     if (!SUCCEEDED(status))
     {
         LOG_FUNC_ERROR("SyscallThreadCreate", status);
