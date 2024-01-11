@@ -96,6 +96,15 @@ _IsrExceptionHandler(
 
     LOG_TRACE_EXCEPTION("Exception: 0x%x [%s]\n", InterruptIndex, EXCEPTION_NAME[InterruptIndex]);
 
+    BOOLEAN isUserMode;
+
+    isUserMode = GdtIsSegmentPrivileged((const WORD)StackPointer->Registers.CS);
+
+    if (!isUserMode)
+    {
+        ProcessTerminate(NULL);
+    }
+
     // now even if we don't have an error code
     // our ISRs push a zero on the stack
     ASSERT(NULL != StackPointer);
@@ -141,6 +150,16 @@ _IsrExceptionHandler(
     else if (ExceptionGeneralProtection == InterruptIndex)
     {
         LOG_TRACE_EXCEPTION("RSP[0]: 0x%X\n", *((QWORD*)StackPointer->Registers.Rsp));
+    }
+
+    if (!exceptionHandled)
+    {
+        if (!GdtIsSegmentPrivileged((WORD)StackPointer->Registers.CS))
+        {
+            PPROCESS currProcess = GetCurrentProcess();
+            ProcessTerminate(currProcess);
+            exceptionHandled = TRUE;
+        }
     }
 
     // no use in logging if we solved the problem

@@ -11,6 +11,11 @@
 
 typedef struct _PROCESS
 {
+    LOCK                            ChildrenListLock;
+
+    _Guarded_by_(ChildrenListLock)
+    LIST_ENTRY                      ChildrenList;
+
     REF_COUNT                       RefCnt;
 
     // The PIDs will also be used for the CR3 PCID

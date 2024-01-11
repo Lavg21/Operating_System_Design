@@ -7,10 +7,18 @@
 #include "mmu.h"
 #include "process_internal.h"
 #include "dmp_cpu.h"
+#include "thread_internal.h"
 
 extern void SyscallEntry();
 
 #define SYSCALL_IF_VERSION_KM       SYSCALL_IMPLEMENTED_IF_VERSION
+
+typedef struct _SYSCALL_SYSTEM_DATA
+{
+    BOOLEAN action;
+
+} SYSCALL_SYSTEM_DATA, * PSYSCALL_SYSTEM_DATA;
+
 
 void
 SyscallHandler(
@@ -67,7 +75,25 @@ SyscallHandler(
         case SyscallIdIdentifyVersion:
             status = SyscallValidateInterface((SYSCALL_IF_VERSION)*pSyscallParameters);
             break;
+        case SyscallIdFileWrite:
+            status = SyscallFileWrite((UM_HANDLE)pSyscallParameters[0],
+                                      (PVOID)pSyscallParameters[1],
+                                      (QWORD)pSyscallParameters[2],
+                                      (QWORD*)pSyscallParameters[3]);
+            break;
+        case SyscallIdProcessExit:
+            status = SyscallProcessExit((STATUS)pSyscallParameters[0]);
+            break;
+        case SyscallIdThreadExit:
+            status = SyscallThreadExit((STATUS)pSyscallParameters[0]);
+            break;
         // STUDENT TODO: implement the rest of the syscalls
+        case SyscallIdMemset:
+            status = SyscallMemset((PBYTE)pSyscallParameters[0],
+                (DWORD)pSyscallParameters[1],
+                (BYTE)pSyscallParameters[2]);
+        case SyscallIdDisableSyscalls:
+            status = SyscallDisableSyscalls((BOOLEAN)pSyscallParameters[0]);
         default:
             LOG_ERROR("Unimplemented syscall called from User-space!\n");
             status = STATUS_UNSUPPORTED;
@@ -83,6 +109,22 @@ SyscallHandler(
 
         CpuIntrSetState(INTR_OFF);
     }
+}
+
+static SYSCALL_SYSTEM_DATA m_syscallData;
+STATUS
+SyscallDisableSyscalls(
+    IN      BOOLEAN     Disable
+)
+{
+    if (Disable == TRUE) {
+        m_syscallData.action = Disable;
+    }
+    else {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    return STATUS_SUCCESS;
 }
 
 void
@@ -152,6 +194,7 @@ SyscallCpuInit(
 }
 
 // SyscallIdIdentifyVersion
+// Already done
 STATUS
 SyscallValidateInterface(
     IN  SYSCALL_IF_VERSION          InterfaceVersion
@@ -169,4 +212,94 @@ SyscallValidateInterface(
     return STATUS_SUCCESS;
 }
 
+// From my light project
+STATUS
+SyscallFileWrite(
+    IN  UM_HANDLE                   FileHandle,
+    IN_READS_BYTES(BytesToWrite)
+    PVOID                           Buffer,
+    IN  QWORD                       BytesToWrite,
+    OUT QWORD* BytesWritten
+)
+{
+    if (FileHandle == UM_FILE_HANDLE_STDOUT) {
+        LOG("%s\n", Buffer);
+        *BytesWritten = BytesToWrite;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+// Already implemented
+STATUS
+SyscallProcessExit(
+    IN      STATUS                  ExitStatus
+)
+{
+    UNREFERENCED_PARAMETER(ExitStatus);
+
+    ProcessTerminate(NULL);
+
+    return STATUS_SUCCESS;
+}
+
+STATUS
+SyscallThreadExit(
+    IN      STATUS                  ExitStatus
+)
+{
+    ThreadExit(ExitStatus);
+
+    return STATUS_SUCCESS;
+}
 // STUDENT TODO: implement the rest of the syscalls
+STATUS
+SyscallMemset(
+    OUT_WRITES(BytesToWrite)    PBYTE   Address,
+    IN                          DWORD   BytesToWrite,
+    IN                          BYTE    ValueToWrite
+)
+{
+    if (MmuIsBufferValid(Address, strlen((char*)Address), PAGE_RIGHTS_WRITE, GetCurrentProcess()))
+        return STATUS_UNSUCCESSFUL;
+
+    memset(Address, ValueToWrite, BytesToWrite);
+
+    return STATUS_SUCCESS;
+}
+
+STATUS
+SyscallProcessCreate(
+    IN_READS_Z(PathLength)
+    char* ProcessPath,
+    IN          QWORD               PathLength,
+    IN_READS_OPT_Z(ArgLength)
+    char* Arguments,
+    IN          QWORD               ArgLength,
+    OUT         UM_HANDLE* ProcessHandle
+)
+{
+    PPROCESS process;
+    INTR_STATE oldIntrState;
+
+    if (PathLength <= 0 || ArgLength <= 0) {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    STATUS status = ProcessCreate(ProcessPath, Arguments, &process);
+
+    if (!SUCCEEDED(status))
+    {
+        LOG_FUNC_ERROR("The process cannot be created!", status);
+
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    LockAcquire(&GetCurrentProcess()->ChildrenListLock, &oldIntrState);
+    InsertTailList(&GetCurrentProcess()->ChildrenList, (PLIST_ENTRY)process);
+    LockRelease(&GetCurrentProcess()->ChildrenListLock, oldIntrState);
+
+    *ProcessHandle = (UM_HANDLE)process;
+
+    return STATUS_SUCCESS;
+}

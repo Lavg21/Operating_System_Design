@@ -306,3 +306,15 @@ SyscallFileWrite(
     IN  QWORD                       BytesToWrite,
     OUT QWORD*                      BytesWritten
     );
+
+STATUS
+SyscallMemset(
+    OUT_WRITES(BytesToWrite)    PBYTE   Address,
+    IN                          DWORD   BytesToWrite,
+    IN                          BYTE    ValueToWrite
+);
+
+STATUS
+SyscallDisableSyscalls(
+    IN      BOOLEAN     Disable
+);

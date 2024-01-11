@@ -408,6 +408,12 @@ ProcessTerminate(
         ThreadExit(STATUS_JOB_INTERRUPTED);
         NOT_REACHED;
     }
+
+    LockAcquire(&Process->ChildrenListLock, &oldState);
+    LockAcquire(&m_processData.SystemProcess->ChildrenListLock, &oldState);
+    InsertHeadList(&m_processData.SystemProcess->ChildrenList, &Process->ChildrenList);
+    LockRelease(&Process->ThreadListLock, oldState);
+    LockRelease(&m_processData.SystemProcess->ChildrenListLock, oldState);
 }
 
 PPROCESS
